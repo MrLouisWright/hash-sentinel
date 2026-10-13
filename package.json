@@ -1,6 +1,6 @@
 {
   "name": "hash-sentinel",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Hash lookup CLI: hash files or take MD5/SHA1/SHA256/SHA512 values and check them offline against self-hosted feeds (hash lists, CSV, MISP events and MISP feed directories, cached URL feeds) and optionally CIRCL hashlookup (no key), MalwareBazaar or VirusTotal. Zero deps.",
   "type": "module",
   "main": "./src/index.js",
