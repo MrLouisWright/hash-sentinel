@@ -1,0 +1,54 @@
+name: 'hash-sentinel'
+description: 'Check file hashes against self-hosted hash feeds, MISP feeds and optional public lookups'
+author: 'Louis Wright'
+branding: { icon: 'hash', color: 'red' }
+inputs:
+  targets: { description: 'Files, directories or hashes to check (space-separated)', default: '.' }
+  feeds: { description: 'Comma-separated feed files, directories or URLs', default: '' }
+  online: { description: 'Comma-separated online sources: circl, malwarebazaar, virustotal', default: '' }
+  fail-on: { description: 'critical | high | medium | low | info | none', default: 'high' }
+  config: { description: 'Path to JSON config file', default: '' }
+  sarif: { description: 'Write SARIF to this path', default: '' }
+  json: { description: 'Write JSON report to this path', default: '' }
+  job-summary: { description: 'Write the Markdown report to the job summary (true/false)', default: 'true' }
+  args: { description: 'Extra CLI arguments', default: '' }
+outputs:
+  markdown-file: { description: 'Path of the Markdown report', value: '${{ steps.run.outputs.markdown-file }}' }
+  exit-code: { description: 'Exit code of the scan (0 pass, 1 findings, 2 error)', value: '${{ steps.run.outputs.exit-code }}' }
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with: { node-version: '20' }
+    - id: run
+      shell: bash
+      env:
+        HS_TARGETS: ${{ inputs.targets }}
+        HS_FEEDS: ${{ inputs.feeds }}
+        HS_ONLINE: ${{ inputs.online }}
+        HS_FAIL_ON: ${{ inputs.fail-on }}
+        HS_CONFIG: ${{ inputs.config }}
+        HS_SARIF: ${{ inputs.sarif }}
+        HS_JSON: ${{ inputs.json }}
+        HS_JOB_SUMMARY: ${{ inputs.job-summary }}
+        HS_ARGS: ${{ inputs.args }}
+        HS_BIN: ${{ github.action_path }}/bin/hash-sentinel.js
+      run: |
+        md="$RUNNER_TEMP/hash-sentinel.md"
+        # shellcheck disable=SC2206
+        targets=($HS_TARGETS)
+        args=("${targets[@]}" --fail-on "$HS_FAIL_ON" --markdown "$md")
+        [ -n "$HS_FEEDS" ] && args+=(--feed "$HS_FEEDS")
+        [ -n "$HS_ONLINE" ] && args+=(--online "$HS_ONLINE")
+        [ -n "$HS_CONFIG" ] && args+=(--config "$HS_CONFIG")
+        [ -n "$HS_SARIF" ] && args+=(--sarif "$HS_SARIF")
+        [ -n "$HS_JSON" ] && args+=(--json "$HS_JSON")
+        set +e
+        # shellcheck disable=SC2086
+        node "$HS_BIN" "${args[@]}" $HS_ARGS
+        code=$?
+        set -e
+        echo "markdown-file=$md" >> "$GITHUB_OUTPUT"
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$HS_JOB_SUMMARY" = "true" ] && [ -f "$md" ]; then cat "$md" >> "$GITHUB_STEP_SUMMARY"; fi
+        exit $code

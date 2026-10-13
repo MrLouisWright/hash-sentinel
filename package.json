@@ -1,0 +1,62 @@
+{
+  "name": "hash-sentinel",
+  "version": "0.0.0",
+  "description": "Hash lookup CLI: hash files or take MD5/SHA1/SHA256/SHA512 values and check them offline against self-hosted feeds (hash lists, CSV, MISP events and MISP feed directories, cached URL feeds) and optionally CIRCL hashlookup (no key), MalwareBazaar or VirusTotal. Zero deps.",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "hash-sentinel": "bin/hash-sentinel.js"
+  },
+  "files": [
+    "src",
+    "bin",
+    "action.yml",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "hash",
+    "hash-lookup",
+    "malware",
+    "ioc",
+    "threat-intelligence",
+    "misp",
+    "malwarebazaar",
+    "circl",
+    "hashlookup",
+    "nsrl",
+    "virustotal",
+    "dfir",
+    "incident-response",
+    "sha256",
+    "security",
+    "sarif",
+    "cli",
+    "github-action"
+  ],
+  "author": "Louis Wright <hello@louiswright.co.uk> (https://github.com/MrLouisWright)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrLouisWright/hash-sentinel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MrLouisWright/hash-sentinel/issues"
+  },
+  "homepage": "https://github.com/MrLouisWright/hash-sentinel#readme"
+}

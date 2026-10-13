@@ -1,0 +1,1 @@
+8693a2ad77b10798f5a4c4d3574de815797a8d1139df9b56e9a58dcd432ec145  example-malware-family
