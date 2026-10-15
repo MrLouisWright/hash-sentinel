@@ -21,6 +21,24 @@ CLI, library and GitHub Action. Node.js 18+, **zero runtime dependencies**. File
 - **Online sources** (`--online circl,malwarebazaar,virustotal`): CIRCL hashlookup needs no key and returns NSRL known-good data plus a `KnownMalicious` flag. MalwareBazaar uses `ABUSECH_AUTH_KEY` (free at auth.abuse.ch). VirusTotal uses `VT_API_KEY` and counts 3 or more engines as malicious. Missing keys are reported as skipped, not failures. Lookups run 4 at a time with a 15 s timeout.
 - `-f table` prints one compact line per input: `malicious | listed | known-good | unknown | invalid`.
 
+## Fuzzy hashes, NSRL and lookup caching
+
+```sh
+hash-sentinel ./samples --feed ssdeep-feed.txt          # flags near-duplicates (fuzzy-match)
+hash-sentinel ./bin --nsrl NSRLFile.txt                  # known-good from NSRL RDS
+hash-sentinel ./dl --online virustotal --rate virustotal=500 --lookup-ttl 3600
+```
+
+```js
+import { hashBuffer, compareSsdeep } from 'hash-sentinel';
+const h = hashBuffer(buf); // { md5, sha1, sha256, sha512, ssdeep, tlsh }
+```
+
+### Module formats and types
+
+Ships **ESM and CommonJS** (`import` and `require` both work, via `exports`), with TypeScript declarations generated from the source at build time. Tests run on Node 18/20/22 in GitHub Actions (`test/`), including require/import checks against the packed tarball; releases are published with npm provenance.
+
+
 ## Rules
 
 | Rule | Default | Meaning |

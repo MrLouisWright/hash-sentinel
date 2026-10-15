@@ -1,14 +1,21 @@
 {
   "name": "hash-sentinel",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Hash lookup CLI: hash files or take MD5/SHA1/SHA256/SHA512 values and check them offline against self-hosted feeds (hash lists, CSV, MISP events and MISP feed directories, cached URL feeds) and optionally CIRCL hashlookup (no key), MalwareBazaar or VirusTotal. Zero deps.",
   "type": "module",
-  "main": "./src/index.js",
-  "types": "./src/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.d.ts",
-      "default": "./src/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -16,6 +23,7 @@
     "hash-sentinel": "bin/hash-sentinel.js"
   },
   "files": [
+    "dist",
     "src",
     "bin",
     "action.yml",
@@ -27,7 +35,10 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "build": "node scripts/build.mjs",
+    "pretest": "npm run build",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "hash",
@@ -62,5 +73,9 @@
   "bugs": {
     "url": "https://github.com/MrLouisWright/hash-sentinel/issues"
   },
-  "homepage": "https://mrlouiswright.github.io/hash-sentinel/"
+  "homepage": "https://mrlouiswright.github.io/hash-sentinel/",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.2"
+  }
 }

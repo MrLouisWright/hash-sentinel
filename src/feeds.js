@@ -2,6 +2,7 @@ import { readFileSync, statSync, readdirSync, existsSync, mkdirSync, writeFileSy
 import { join, basename } from 'node:path';
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
+import { fuzzyType } from './fuzzy.js';
 
 export const HASH_TYPES = { 32: 'md5', 40: 'sha1', 64: 'sha256', 128: 'sha512' };
 export const hashType = (h) => (/^[0-9a-f]+$/i.test(h) ? HASH_TYPES[h.length] || null : null);
@@ -9,7 +10,9 @@ const HASH_RE = /\b(?:[0-9a-f]{128}|[0-9a-f]{64}|[0-9a-f]{40}|[0-9a-f]{32})\b/gi
 
 /** In-memory index: hash -> [{ feed, label, malicious, source }] */
 export class HashIndex {
-  constructor() { this.map = new Map(); this.feeds = []; }
+  constructor() { this.map = new Map(); this.feeds = []; this.fuzzy = []; }
+  /** Add a fuzzy hash (ssdeep or TLSH) entry. */
+  addFuzzy(type, value, entry) { const v = type === 'tlsh' ? String(value).toUpperCase().replace(/^(?!T1)/, 'T1') : String(value); if (!this.fuzzy.some((f) => f.value === v && f.entry.feed === entry.feed)) this.fuzzy.push({ type, value: v, entry }); }
   add(hash, entry) { const h = hash.toLowerCase(); if (!hashType(h)) return; const a = this.map.get(h); if (a) { if (!a.some((x) => x.feed === entry.feed && x.label === entry.label)) a.push(entry); } else this.map.set(h, [entry]); }
   get(h) { return this.map.get(h.toLowerCase()) || []; }
   get size() { return this.map.size; }
@@ -58,6 +61,7 @@ export function parseFeed(text, { name = 'feed', format = 'auto', malicious = tr
       if (x.data && Array.isArray(x.data)) { visit(x.data); return; }
       const keys = ['sha256', 'sha256_hash', 'sha1', 'sha1_hash', 'md5', 'md5_hash', 'sha512', 'hash'];
       for (const k of keys) if (typeof x[k] === 'string' && hashType(x[k])) out.push({ hash: x[k], label: x.signature || x.name || x.file_name || x.label || x.description || undefined, malicious: x.malicious ?? malicious });
+      for (const k of ['ssdeep', 'tlsh']) if (typeof x[k] === 'string' && fuzzyType(x[k]) === k) out.push({ hash: x[k], fuzzy: k, label: x.signature || x.name || x.file_name || x.label || undefined, malicious: x.malicious ?? malicious });
     };
     visit(j);
     return out;
@@ -71,12 +75,15 @@ export function parseFeed(text, { name = 'feed', format = 'auto', malicious = tr
       if (!header && /(sha256|sha1|md5|hash)/i.test(line) && !line.match(HASH_RE)) { delim = line.includes('\t') ? '\t' : line.includes(';') && !line.includes(',') ? ';' : ','; header = splitCsv(line, delim).map((x) => x.toLowerCase()); continue; }
       const cells = splitCsv(line, delim);
       const labelIdx = header ? ['signature', 'malware', 'family', 'name', 'file_name', 'filename', 'label', 'comment', 'tags', 'eventuuid', 'event'].map((k) => header.indexOf(k)).find((i) => i >= 0) : -1;
-      cells.forEach((c, i) => { if (hashType(c) && (!header || /sha|md5|hash/.test(header[i] || 'hash'))) out.push({ hash: c, label: labelIdx >= 0 && cells[labelIdx] && cells[labelIdx] !== 'n/a' ? cells[labelIdx] : undefined, malicious }); });
+      cells.forEach((c, i) => { const ft = fuzzyType(c); if (ft && (!header || /ssdeep|tlsh|fuzzy|hash/.test(header[i] || 'hash'))) { out.push({ hash: c, fuzzy: ft, label: labelIdx >= 0 && cells[labelIdx] && cells[labelIdx] !== 'n/a' ? cells[labelIdx] : undefined, malicious }); return; } if (hashType(c) && (!header || /sha|md5|hash/.test(header[i] || 'hash'))) out.push({ hash: c, label: labelIdx >= 0 && cells[labelIdx] && cells[labelIdx] !== 'n/a' ? cells[labelIdx] : undefined, malicious }); });
     }
     return out;
   }
   for (const raw of t.split(/\r?\n/)) {
     const line = raw.replace(/\s+#.*$/, '').trim(); if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+    const fz = line.split(/[\s,]+/)[0].replace(/^"|"$/g, '');
+    if (fuzzyType(fz)) { out.push({ hash: fz, fuzzy: fuzzyType(fz), label: line.slice(fz.length).replace(/^[\s,"]+|"$/g, '').trim() || undefined, malicious }); continue; }
+    if (/^ssdeep,\d/.test(line)) continue; // ssdeep -l header
     const bsd = line.match(/^(?:MD5|SHA1|SHA256|SHA512)\s*\((.+)\)\s*=\s*([0-9a-f]+)$/i);
     if (bsd) { if (hashType(bsd[2])) out.push({ hash: bsd[2], label: bsd[1], malicious }); continue; }
     const sum = line.match(/^\\?([0-9a-f]{32,128})(?:\s+\*?(.*))?$/i);
@@ -120,7 +127,8 @@ export async function loadFeeds(feeds, { index = new HashIndex(), fetchImpl = gl
           if (/\.(json|csv|txt|tsv)$/i.test(e)) entries.push(...parseFeed(readFileSync(p, 'utf8'), { ...opts, name: `${name}/${e}`, malicious: e === 'hashes.csv' ? opts.malicious : opts.malicious }));
         }
       } else entries = parseFeed(readFileSync(f.path, 'utf8'), opts);
-      for (const e of entries) index.add(e.hash, { feed: name, label: e.label, malicious: e.malicious, ...(e.meta ? { meta: e.meta } : {}) });
+      for (const e of entries.filter((x) => x.fuzzy)) index.addFuzzy(e.fuzzy, e.hash, { feed: name, label: e.label, malicious: e.malicious });
+      for (const e of entries.filter((x) => !x.fuzzy)) index.add(e.hash, { feed: name, label: e.label, malicious: e.malicious, ...(e.meta ? { meta: e.meta } : {}) });
       index.feeds.push({ name, entries: entries.length, unique: index.size - before });
     } catch (e) { errors.push(`${name}: ${e.code === 'ENOENT' ? 'not found' : e.message}`); index.feeds.push({ name, entries: 0, error: e.message }); }
   }

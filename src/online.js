@@ -1,6 +1,40 @@
 // Optional online lookups. Off unless requested; only hashes are sent, never files.
 export const ENDPOINTS = { circl: 'https://hashlookup.circl.lu', malwarebazaar: 'https://mb-api.abuse.ch/api/v1/', virustotal: 'https://www.virustotal.com/api/v3' };
 export const SOURCES = ['circl', 'malwarebazaar', 'virustotal'];
+/** Default request rates per minute (VirusTotal public API: 4/min). Override with { rates: { virustotal: 500 } }. */
+export const DEFAULT_RATES = { circl: 120, malwarebazaar: 60, virustotal: 4 };
+
+/**
+ * Serialising rate limiter: wait() resolves no sooner than 60000/perMinute ms after the previous call.
+ * @param {number} perMinute
+ * @param {{ now?: () => number, sleep?: (ms: number) => Promise<void> }} [clock]
+ */
+export function createLimiter(perMinute, { now = Date.now, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  const gap = perMinute > 0 ? 60000 / perMinute : 0; let next = 0; let chain = Promise.resolve();
+  const wait = () => (chain = chain.then(async () => { const t = now(); if (t < next) await sleep(next - t); next = Math.max(t, next) + gap; }));
+  return { wait, get gap() { return gap; } };
+}
+
+/**
+ * CIRCL hashlookup bulk query: one request for many hashes of one type (md5/sha1/sha256).
+ * Returns Map(hash -> lookup result) for every hash asked (found or not).
+ */
+export async function bulkCircl(hashes, type, { fetchImpl = globalThis.fetch, endpoints = {}, timeout = 30000 } = {}) {
+  const ep = { ...ENDPOINTS, ...endpoints }.circl;
+  const out = new Map();
+  if (!['md5', 'sha1', 'sha256'].includes(type) || !hashes.length) return out;
+  const r = await fetchImpl(`${ep}/bulk/${type}`, { method: 'POST', signal: AbortSignal.timeout(timeout), headers: { accept: 'application/json', 'content-type': 'application/json', 'user-agent': 'hash-sentinel' }, body: JSON.stringify({ hashes }) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const rows = await r.json();
+  for (const h of hashes) out.set(h, { source: 'circl', found: false });
+  for (const j of Array.isArray(rows) ? rows : []) {
+    const key = String(j[type.toUpperCase()] || j[type === 'sha1' ? 'SHA-1' : type.toUpperCase()] || '').toLowerCase();
+    if (!out.has(key)) continue;
+    const mal = !!j.KnownMalicious;
+    out.set(key, { source: 'circl', found: true, malicious: mal, knownGood: !mal, label: mal ? `known malicious (${j.KnownMalicious})` : `${j.FileName || 'known file'}${j.ProductCode?.ProductName ? ` from ${j.ProductCode.ProductName}` : ''} (NSRL/known-good)`, detail: { fileName: j.FileName, fileSize: j.FileSize, knownMalicious: j.KnownMalicious } });
+  }
+  return out;
+}
 
 /** @returns {Promise<{source:string,found:boolean,malicious?:boolean,knownGood?:boolean,label?:string,detail?:object,error?:string,skipped?:string}>} */
 export async function lookup(source, hash, type, { fetchImpl = globalThis.fetch, endpoints = {}, keys = {}, timeout = 15000 } = {}) {
