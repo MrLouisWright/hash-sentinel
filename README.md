@@ -1,5 +1,7 @@
 # hash-sentinel
 
+[![npm version](https://img.shields.io/npm/v/hash-sentinel.svg)](https://www.npmjs.com/package/hash-sentinel) [![CI](https://github.com/MrLouisWright/hash-sentinel/actions/workflows/ci.yml/badge.svg)](https://github.com/MrLouisWright/hash-sentinel/actions/workflows/ci.yml) [![Node](https://img.shields.io/node/v/hash-sentinel.svg)](https://nodejs.org) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 > Check file hashes against your own threat feeds, MISP and optional public lookups, offline-first.
 
 `hash-sentinel` takes MD5/SHA1/SHA256/SHA512 values, or files and directories that it hashes locally, and checks them against **self-hosted feeds** you control: plain hash lists, `sha256sum` output, CSV exports (such as MalwareBazaar's), **MISP events, MISP REST search results and MISP feed directories**, and URL feeds that are cached locally. Optionally it asks **CIRCL hashlookup** (no API key; it knows millions of good files from NSRL and flags known-malicious ones), **MalwareBazaar** (free abuse.ch Auth-Key) and **VirusTotal** (API key).
