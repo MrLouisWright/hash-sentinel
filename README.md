@@ -78,6 +78,48 @@ report.targets[0].data.status;   // 'malicious' | 'listed' | 'known-good' | 'unk
 report.targets[0].data.matches;  // [{ feed, label, malicious, hash, meta }]
 ```
 
+## Options
+
+Full CLI reference (`hash-sentinel --help`):
+
+```text
+hash-sentinel 1.1.0 — look up file hashes in self-hosted feeds and optional public sources
+
+Usage: hash-sentinel <hash|file|dir|-> [...] [options]
+
+Inputs are MD5/SHA1/SHA256/SHA512 values, files (hashed locally, never uploaded) or directories.
+"-" reads hashes or paths from stdin, one per line.
+
+Feeds (offline, self-hosted)
+      --feed <src>           Hash list, CSV (e.g. MalwareBazaar export), MISP event JSON, MISP feed
+                             directory, or an http(s) URL (cached; repeatable or comma-separated)
+      --known-good <src>     Known-good hash list(s) (e.g. your golden images)
+      --nsrl <src>           NSRL RDS CSV/hash list (file or URL), treated as known-good
+      --no-fuzzy             Skip ssdeep/TLSH fuzzy hashing of files
+      --ssdeep-threshold <n> Minimum ssdeep similarity score for fuzzy-match (default 60)
+      --tlsh-threshold <n>   Maximum TLSH distance for fuzzy-match (default 50)
+      --lookup-ttl <s>       Cache online lookup results for s seconds (default 86400; 0 disables)
+      --rate <src=n>         Requests per minute for an online source (default virustotal=4, circl=120, malwarebazaar=60)
+      --ttl <seconds>        URL feed cache lifetime (default 21600)
+      --offline              Never touch the network (cached URL feeds only)
+Online (opt-in; only the hash is sent)
+      --online <list>        circl, malwarebazaar, virustotal
+                               circl: CIRCL hashlookup, no key (NSRL known-good + KnownMalicious)
+                               malwarebazaar: needs ABUSECH_AUTH_KEY (free at auth.abuse.ch)
+                               virustotal: needs VT_API_KEY
+  -f table                   One line per input: status, target, label
+Policy and output
+  -c, --config <file>        JSON config (default .hash-sentinel.json if present)
+  -f, --format <fmt>         text (default) | json | sarif | markdown
+      --json/--sarif/--markdown <file>  Also write that format to a file
+      --fail-on <sev>        critical | high | medium | low | info | none (default high)
+      --list-rules           Print rules and default severities
+      --no-color             Disable colours
+  -v, --version / -h, --help
+
+Exit codes: 0 = passed, 1 = findings at or above --fail-on, 2 = usage error or a target could not be checked.
+```
+
 ## Configuration
 
 Put a `.hash-sentinel.json` in the working directory (or pass `--config <file>`). Every key is optional; CLI flags override the file.
